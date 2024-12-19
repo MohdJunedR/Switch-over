@@ -1,0 +1,182 @@
+Switching over an Oracle database from the Primary (Prod) to the Standby (DR) involves a controlled process, typically used during planned maintenance or testing. Below are the detailed steps with pre-checks and post-checks, explained in Hinglish:
+
+
+---
+
+Pre-checks (Important Steps Before Switchover)
+
+1. Verify Data Guard Configuration
+
+Primary aur Standby systems ki configuration check karo using:
+
+SHOW CONFIGURATION;
+
+
+
+2. Verify Primary and Standby Status
+
+Primary par DATABASE_ROLE check karo:
+
+SELECT DATABASE_ROLE, OPEN_MODE FROM V$DATABASE;
+
+Result: PRIMARY
+
+Standby par:
+
+SELECT DATABASE_ROLE, OPEN_MODE FROM V$DATABASE;
+
+Result: PHYSICAL STANDBY aur mode READ ONLY WITH APPLY.
+
+
+
+3. Archive Log Gap Check
+
+Ensure no log gaps between Primary aur Standby:
+
+SELECT THREAD#, SEQUENCE# FROM V$ARCHIVED_LOG WHERE APPLIED = 'NO';
+
+
+
+4. Force Log Archive
+
+Primary database par manual log switch karo aur Standby par lagao:
+
+ALTER SYSTEM SWITCH LOGFILE;
+
+
+
+5. Check Data Guard Sync
+
+Verify real-time apply:
+
+SELECT DEST_ID, STATUS, ERROR FROM V$ARCHIVE_DEST WHERE TARGET = 'STANDBY';
+
+
+
+6. Backup the Databases
+
+Dono Primary aur Standby ka RMAN backup ensure karo as a precaution.
+
+
+
+7. Disable Application Connections
+
+Application ya end-users ka access restrict karo.
+
+
+
+
+
+---
+
+Switchover Steps (Switch from Prod to DR)
+
+1. Check Switchover Readiness on Primary
+Primary database par execute:
+
+SELECT SWITCHOVER_STATUS FROM V$DATABASE;
+
+Result: TO STANDBY
+
+
+2. Perform Switchover on Primary
+Primary ko Standby banane ke liye:
+
+ALTER DATABASE COMMIT TO SWITCHOVER TO PHYSICAL STANDBY;
+
+
+3. Shutdown and Startup on Former Primary
+Primary ko mount mode mein le jao:
+
+SHUTDOWN IMMEDIATE;
+STARTUP MOUNT;
+
+
+4. Activate Standby as Primary
+Standby database par switchover commit karo:
+
+ALTER DATABASE COMMIT TO SWITCHOVER TO PRIMARY;
+
+
+5. Open New Primary Database
+Standby (jo ab Primary hai) ko open karo:
+
+ALTER DATABASE OPEN;
+
+
+6. Restart Former Primary as Standby
+Pehle Primary ko Standby mode mein lagao:
+
+ALTER DATABASE RECOVER MANAGED STANDBY DATABASE USING CURRENT LOGFILE DISCONNECT;
+
+
+
+
+---
+
+Post-checks (Validate New Roles and Sync)
+
+1. Verify New Roles
+
+New Primary:
+
+SELECT DATABASE_ROLE, OPEN_MODE FROM V$DATABASE;
+
+Result: PRIMARY
+
+New Standby:
+
+SELECT DATABASE_ROLE, OPEN_MODE FROM V$DATABASE;
+
+Result: PHYSICAL STANDBY
+
+
+
+2. Test Log Transport and Apply
+
+New Primary par manual log switch karo:
+
+ALTER SYSTEM SWITCH LOGFILE;
+
+Ensure logs are applied on the new Standby.
+
+
+
+3. Monitor Data Guard Configuration
+
+SHOW CONFIGURATION;
+
+
+4. Enable Application Connections
+
+Application ka traffic new Primary par redirect karo.
+
+
+
+5. Check Performance and Alerts
+
+Alert logs and system performance check karo to ensure smooth operations.
+
+
+
+6. Backup the New Primary Database
+
+Nai Primary database ka full backup le lo.
+
+
+
+
+
+---
+
+Notes
+
+Fast-Start Failover: Agar enabled hai, manually intervention ki zarurat nahi hoti.
+
+Always perform switchover during low activity hours.
+
+Use DGMGRL tool for automated commands if required.
+
+
+Need practical scripts for any of these steps? Let me know!
+
